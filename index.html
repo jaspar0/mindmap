@@ -32,15 +32,6 @@
     .control-button:hover {
       background: #f3f4f6;
     }
-
-    .node {
-      cursor: pointer;
-      transition: transform 0.2s;
-    }
-
-    .node:hover {
-      transform: scale(1.05);
-    }
   </style>
 </head>
 <body>
@@ -48,7 +39,6 @@
 
   <script type="text/babel">
     const App = () => {
-      // State for pan and zoom
       const [transform, setTransform] = React.useState({ x: 0, y: 0, scale: 1 });
       const [isDragging, setIsDragging] = React.useState(false);
       const [dragStart, setDragStart] = React.useState({ x: 0, y: 0 });
@@ -61,24 +51,25 @@
         { id: 'contact', label: 'Contact', x: 100, y: 100, path: 'https://www.parkjason.com/contact' }
       ];
 
-      // Navigation handler
+      // Fixed navigation handler - always targets top window
       const handleNodeClick = (path, e) => {
-        if (!isDragging) {
-          try {
-            window.parent.location.href = path;
-          } catch (err) {
-            window.location.href = path;
-          }
+        e.stopPropagation(); // Prevent drag behavior when clicking nodes
+        let topWindow = window;
+        while (topWindow.parent && topWindow.parent !== topWindow) {
+          topWindow = topWindow.parent;
         }
+        topWindow.location.href = path;
       };
 
       // Pan handlers
       const handleMouseDown = (e) => {
-        setIsDragging(true);
-        setDragStart({ 
-          x: e.clientX - transform.x, 
-          y: e.clientY - transform.y 
-        });
+        if (e.target.tagName === 'svg' || e.target.tagName === 'g') {
+          setIsDragging(true);
+          setDragStart({ 
+            x: e.clientX - transform.x, 
+            y: e.clientY - transform.y 
+          });
+        }
       };
 
       const handleMouseMove = (e) => {
@@ -154,9 +145,9 @@
               {nodes.map(node => (
                 <g
                   key={node.id}
-                  className="node"
                   transform={`translate(${node.x}, ${node.y})`}
                   onClick={(e) => handleNodeClick(node.path, e)}
+                  style={{ cursor: 'pointer' }}
                 >
                   <circle
                     r="40"
