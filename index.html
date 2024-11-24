@@ -12,56 +12,48 @@
       border-radius: 8px;
       overflow: hidden;
     }
+    .node-circle {
+      transition: all 0.3s ease;
+    }
+    .node-circle:hover {
+      fill: #93c5fd;
+    }
   </style>
 </head>
 <body>
   <div id="mindmap-root"></div>
 
   <script type="text/babel">
-    // Configure your site structure here
+    // Base URL for your Webflow site
+    const BASE_URL = 'https://www.parkjason.com';
+    
+    // Site structure matching your Webflow pages
     const siteStructure = {
       id: 'root',
       label: 'Home',
-      path: 'https://www.parkjason.com', // Replace with your Webflow homepage URL
+      path: `${BASE_URL}`,
       children: [
-        {
-          id: 'products',
-          label: 'Products',
-          path: '/products', // Replace with your products page URL
-          children: [
-            { 
-              id: 'software',
-              label: 'Software',
-              path: '/products/software' // Replace with your software page URL
-            },
-            {
-              id: 'hardware',
-              label: 'Hardware',
-              path: '/products/hardware' // Replace with your hardware page URL
-            }
-          ]
-        },
         {
           id: 'about',
           label: 'About',
-          path: '/about', // Replace with your about page URL
-          children: [
-            { id: 'team', label: 'Team', path: '/about/team' },
-            { id: 'contact', label: 'Contact', path: '/about/contact' }
-          ]
+          path: `${BASE_URL}/about`
+        },
+        {
+          id: 'work',
+          label: 'Work',
+          path: `${BASE_URL}/work`
+        },
+        {
+          id: 'contact',
+          label: 'Contact',
+          path: `${BASE_URL}/contact`
         }
       ]
     };
 
     const MindMap = () => {
       const [dimensions, setDimensions] = React.useState({ width: 800, height: 600 });
-      const [transform, setTransform] = React.useState({ x: 0, y: 0, scale: 1 });
-      const [isDragging, setIsDragging] = React.useState(false);
-      const [dragStart, setDragStart] = React.useState({ x: 0, y: 0 });
       const svgRef = React.useRef(null);
-
-      // Get current path to highlight active node
-      const currentPath = window.location.pathname;
 
       React.useEffect(() => {
         const updateDimensions = () => {
@@ -79,215 +71,83 @@
         return () => window.removeEventListener('resize', updateDimensions);
       }, []);
 
-      const calculateNodePositions = (node, level = 0, angle = 0) => {
-        const positions = [];
-        const radius = Math.min(dimensions.width, dimensions.height) / 3;
+      // Calculate node positions in a circle around the center
+      const nodes = [
+        { id: 'root', label: 'Home', x: 0, y: 0, path: siteStructure.path },
+        { id: 'about', label: 'About', x: -120, y: 100, path: `${BASE_URL}/about` },
+        { id: 'work', label: 'Work', x: 0, y: 140, path: `${BASE_URL}/work` },
+        { id: 'contact', label: 'Contact', x: 120, y: 100, path: `${BASE_URL}/contact` }
+      ];
+
+      const handleNodeClick = (path) => {
+        console.log('Node clicked:', path); // Debug log
         
-        const x = Math.cos(angle) * (radius * level);
-        const y = Math.sin(angle) * (radius * level);
-
-        positions.push({
-          id: node.id,
-          label: node.label,
-          x,
-          y,
-          path: node.path,
-          isActive: currentPath === node.path,
-          level
-        });
-
-        if (node.children) {
-          const startAngle = -Math.PI / 2;
-          const angleStep = (2 * Math.PI) / node.children.length;
-          
-          node.children.forEach((child, index) => {
-            const childAngle = startAngle + angleStep * index;
-            positions.push(...calculateNodePositions(child, level + 1, childAngle));
-          });
-        }
-
-        return positions;
-      };
-
-      const nodes = calculateNodePositions(siteStructure);
-
-      const createConnections = () => {
-        const connections = [];
-        const addConnections = (node, parentId = null) => {
-          if (parentId) {
-            connections.push({ from: parentId, to: node.id });
+        // Force navigation to the top window
+        try {
+          // First try to get the topmost parent window
+          let topWindow = window;
+          while (topWindow.parent !== topWindow) {
+            topWindow = topWindow.parent;
           }
-          if (node.children) {
-            node.children.forEach(child => addConnections(child, node.id));
-          }
-        };
-        addConnections(siteStructure);
-        return connections;
-      };
-
-      const connections = createConnections();
-
-      const handleZoomButton = (direction) => {
-        const scaleFactor = 1.2;
-        setTransform(prev => {
-          const newScale = direction === 'in' ? prev.scale * scaleFactor : prev.scale / scaleFactor;
-          return {
-            ...prev,
-            scale: Math.min(Math.max(newScale, 0.5), 3)
-          };
-        });
-      };
-
-      const handleMouseDown = (e) => {
-        if (e.button === 0) {
-          setIsDragging(true);
-          setDragStart({ x: e.clientX - transform.x, y: e.clientY - transform.y });
+          console.log('Navigating to:', path);
+          topWindow.location.href = path;
+        } catch (e) {
+          console.log('Navigation error:', e);
+          // If accessing parent window fails, try direct navigation
+          window.location.href = path;
         }
-      };
-
-      const handleMouseMove = (e) => {
-        if (isDragging) {
-          setTransform(prev => ({
-            ...prev,
-            x: e.clientX - dragStart.x,
-            y: e.clientY - dragStart.y
-          }));
-        }
-      };
-
-      const handleMouseUp = () => {
-        setIsDragging(false);
-      };
-
-      const handleNodeClick = (path, e) => {
-        if (!isDragging) {
-          window.parent.location.href = path;
-        }
-      };
-
-      const resetView = () => {
-        setTransform({ x: 0, y: 0, scale: 1 });
       };
 
       return (
-        <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-          <div style={{
-            position: 'absolute',
-            top: '1rem',
-            right: '1rem',
-            zIndex: 10,
-            display: 'flex',
-            gap: '0.5rem'
-          }}>
-            <button 
-              onClick={() => handleZoomButton('out')}
-              style={{
-                width: '2.5rem',
-                height: '2.5rem',
-                background: 'white',
-                border: 'none',
-                borderRadius: '0.5rem',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                cursor: 'pointer'
-              }}
-            >
-              -
-            </button>
-            <button 
-              onClick={() => handleZoomButton('in')}
-              style={{
-                width: '2.5rem',
-                height: '2.5rem',
-                background: 'white',
-                border: 'none',
-                borderRadius: '0.5rem',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                cursor: 'pointer'
-              }}
-            >
-              +
-            </button>
-            <button 
-              onClick={resetView}
-              style={{
-                padding: '0.5rem 1rem',
-                background: 'white',
-                border: 'none',
-                borderRadius: '0.5rem',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                cursor: 'pointer'
-              }}
-            >
-              Reset View
-            </button>
-          </div>
-
-          <div 
-            style={{ 
-              position: 'relative',
-              width: '100%',
-              height: '100%',
-              overflow: 'hidden'
-            }}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
+        <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+          <svg 
+            ref={svgRef}
+            viewBox={`${-dimensions.width/4} ${-dimensions.height/4} ${dimensions.width/2} ${dimensions.height/2}`}
+            style={{ width: '100%', height: '100%' }}
           >
-            <svg 
-              ref={svgRef}
-              viewBox={`${-dimensions.width/2} ${-dimensions.height/2} ${dimensions.width} ${dimensions.height}`}
-              style={{ width: '100%', height: '100%', cursor: 'move' }}
-            >
-              <g transform={`translate(${transform.x},${transform.y}) scale(${transform.scale})`}>
-                {connections.map((connection) => {
-                  const fromNode = nodes.find(n => n.id === connection.from);
-                  const toNode = nodes.find(n => n.id === connection.to);
-                  return (
-                    <line
-                      key={`${connection.from}-${connection.to}`}
-                      x1={fromNode.x}
-                      y1={fromNode.y}
-                      x2={toNode.x}
-                      y2={toNode.y}
-                      stroke="#e2e8f0"
-                      strokeWidth="2"
-                    />
-                  );
-                })}
-                
-                {nodes.map((node) => (
-                  <g
-                    key={node.id}
-                    transform={`translate(${node.x},${node.y})`}
-                    onClick={(e) => handleNodeClick(node.path, e)}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <circle
-                      r="32"
-                      fill="#e2e8f0"
-                      opacity="0.5"
-                      transform="translate(2,2)"
-                    />
-                    <circle
-                      r="32"
-                      fill={node.isActive ? '#3b82f6' : 'white'}
-                      stroke="#3b82f6"
-                      strokeWidth="2"
-                    />
-                    <text
-                      dy=".3em"
-                      textAnchor="middle"
-                      fill={node.isActive ? 'white' : '#374151'}
-                      style={{ fontSize: '14px', fontWeight: 500 }}
-                    >
-                      {node.label}
-                    </text>
-                  </g>
-                ))}
+            {/* Draw connections */}
+            {nodes.slice(1).map(node => (
+              <line 
+                key={`line-${node.id}`}
+                x1="0" 
+                y1="0" 
+                x2={node.x} 
+                y2={node.y} 
+                stroke="#e2e8f0" 
+                strokeWidth="2" 
+              />
+            ))}
+
+            {/* Draw nodes */}
+            {nodes.map((node) => (
+              <g
+                key={node.id}
+                transform={`translate(${node.x},${node.y})`}
+                onClick={() => handleNodeClick(node.path)}
+                style={{ cursor: 'pointer' }}
+              >
+                <circle
+                  r="40"
+                  className="node-circle"
+                  fill="white"
+                  stroke="#3b82f6"
+                  strokeWidth="2"
+                />
+                <text
+                  dy=".3em"
+                  textAnchor="middle"
+                  fill="#374151"
+                  style={{ 
+                    fontSize: '14px', 
+                    fontFamily: 'Arial, sans-serif',
+                    pointerEvents: 'none'
+                  }}
+                >
+                  {node.label}
+                </text>
               </g>
-            </svg>
-          </div>
+            ))}
+          </svg>
         </div>
       );
     };
